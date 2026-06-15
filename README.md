@@ -1,5 +1,7 @@
 # Relay
 
+*A local gateway that caches what your LLM already answered.*
+
 Relay is a small gateway that sits in front of LLM providers and adds the things
 a raw provider call doesn't give you: streaming, a cache that serves
 near-duplicate prompts without paying for them again, failover between providers,
