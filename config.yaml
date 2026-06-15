@@ -15,12 +15,18 @@ routes:
     rate_limit:
       capacity: 60               # bucket size, counted in request permits
       refill_per_sec: 30         # permits added back per second
+  failover-demo:
+    providers: [flaky, mock]     # flaky always fails, so every call falls through to mock
+    similarity_threshold: 0.90
 
 providers:
   mock:
     type: mock
     ttft_ms: 120                 # simulated time to first token
     per_token_ms: 8              # simulated delay between tokens
+  flaky:
+    type: mock
+    fail_rate: 1.0               # always raises before the first token, for the failover demo
   openai:
     type: openai
     model: gpt-4o-mini
