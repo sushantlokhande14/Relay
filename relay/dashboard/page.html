@@ -6,137 +6,323 @@
 <title>Relay metrics</title>
 <style>
   :root {
-    --bg: #0f1115; --panel: #171a21; --line: #262b36;
-    --text: #e6e9ef; --muted: #8b93a3; --accent: #5db0ff; --good: #5ad19a; --warn: #e0a45e;
+    --bg: #f3f3ee; --card: #ffffff; --ink: #1c1e22; --muted: #71757d; --faint: #9a9da3;
+    --hair: #e6e5dd; --hair2: #efeee8;
+    --exact: #2f73c4; --semantic: #14a07a; --miss: #d98a34;
+    --sans: -apple-system, "Segoe UI", Roboto, system-ui, "Helvetica Neue", sans-serif;
+    --mono: "Cascadia Code", "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    padding: 28px;
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
+         padding: 30px clamp(16px, 5vw, 56px); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  header { display: flex; justify-content: space-between; align-items: flex-end;
+           padding-bottom: 18px; border-bottom: 1px solid var(--hair); margin-bottom: 22px; }
+  .logo { font-family: var(--serif); font-size: 26px; letter-spacing: .2px; }
+  .tag { color: var(--muted); font-size: 13px; margin-left: 10px; }
+  .status { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); display: inline-block; }
+  .dot.live { background: var(--semantic); }
+  .sep { color: var(--hair); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  .card { background: var(--card); border: 1px solid var(--hair); border-radius: 12px; padding: 16px 18px; }
+  .label { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+  .value { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 30px;
+           margin-top: 8px; line-height: 1; }
+  .value .unit { font-size: 14px; color: var(--faint); margin: 0 2px; }
+  .subrow { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+  .subrow b { color: var(--ink); font-family: var(--mono); font-weight: 500; }
+
+  .segbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 14px; background: var(--hair2); }
+  .segbar span { display: block; height: 100%; }
+  .seglegend { display: flex; gap: 14px; margin-top: 10px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+  .seglegend i, .legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: 0px; }
+  .seglegend b { color: var(--ink); font-family: var(--mono); font-weight: 500; margin-left: 4px; }
+
+  .row2 { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; margin-top: 14px; }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .card-head h2 { font-family: var(--serif); font-weight: 500; font-size: 16px; margin: 0; }
+  .legend { font-size: 12px; color: var(--muted); display: flex; gap: 14px; }
+  svg { width: 100%; height: auto; display: block; }
+
+  .grid { stroke: var(--hair2); stroke-width: 1; }
+  .axis { stroke: var(--hair); stroke-width: 1; }
+  .yl, .xl { fill: var(--faint); font-size: 11px; font-family: var(--mono); }
+  .dnum { fill: var(--ink); font-size: 30px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .dlab { fill: var(--muted); font-size: 12px; font-family: var(--sans); }
+
+  .donut-wrap { display: flex; align-items: center; gap: 18px; }
+  .donut-wrap svg { width: 168px; flex: none; }
+  .donut-legend { font-size: 12.5px; color: var(--muted); display: grid; gap: 9px; }
+  .donut-legend b { color: var(--ink); font-family: var(--mono); font-weight: 500; }
+
+  footer { margin-top: 18px; font-size: 12.5px; color: var(--muted); }
+  footer b { color: var(--ink); font-family: var(--mono); font-weight: 500; }
+
+  @media (max-width: 820px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .row2 { grid-template-columns: 1fr; }
   }
-  h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
-  .sub { color: var(--muted); margin-bottom: 22px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-  .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-  .value { font-size: 26px; margin-top: 6px; }
-  .value small { font-size: 13px; color: var(--muted); }
-  .row { display: flex; justify-content: space-between; margin-top: 4px; color: var(--muted); }
-  .row b { color: var(--text); font-weight: 600; }
-  .wide { grid-column: 1 / -1; }
-  svg { display: block; width: 100%; height: 60px; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--muted); }
-  .dot.live { background: var(--good); }
-  footer { color: var(--muted); margin-top: 22px; font-size: 12px; }
 </style>
 </head>
 <body>
-  <h1>Relay</h1>
-  <div class="sub"><span id="conn" class="dot"></span><span id="connText">connecting…</span> · cost figures are modeled from reference prices, not billed</div>
+<div class="wrap">
+  <header>
+    <div><span class="logo">Relay</span><span class="tag">gateway metrics</span></div>
+    <div class="status">
+      <span id="dot" class="dot"></span><span id="conn">connecting</span>
+      <span class="sep">·</span><span>cost is modeled, not billed</span>
+    </div>
+  </header>
 
-  <div class="grid">
+  <section class="stats">
     <div class="card">
-      <div class="label">Cache hit rate</div>
-      <div class="value"><span id="hitRate">–</span></div>
-      <div class="row"><span>exact</span><b id="exactRate">–</b></div>
-      <div class="row"><span>semantic</span><b id="semRate">–</b></div>
+      <div class="label">cache hit rate</div>
+      <div class="value"><span id="hitRate">—</span></div>
+      <div class="segbar">
+        <span id="segExact" style="background:var(--exact)"></span>
+        <span id="segSem" style="background:var(--semantic)"></span>
+        <span id="segMiss" style="background:var(--miss)"></span>
+      </div>
+      <div class="seglegend">
+        <span><i style="background:var(--exact)"></i>exact<b id="cExact">0</b></span>
+        <span><i style="background:var(--semantic)"></i>semantic<b id="cSem">0</b></span>
+        <span><i style="background:var(--miss)"></i>miss<b id="cMiss">0</b></span>
+      </div>
     </div>
-    <div class="card">
-      <div class="label">Latency p50 / p95 (ms)</div>
-      <div class="value"><span id="latAll">–</span></div>
-      <div class="row"><span>cache hit</span><b id="latHit">–</b></div>
-      <div class="row"><span>miss</span><b id="latMiss">–</b></div>
-    </div>
-    <div class="card">
-      <div class="label">Requests</div>
-      <div class="value"><span id="total">0</span></div>
-      <div class="row"><span>miss / exact / semantic</span><b id="breakdown">0 / 0 / 0</b></div>
-      <div class="row"><span>rate limited / errors</span><b id="errs">0 / 0</b></div>
-    </div>
-    <div class="card">
-      <div class="label">Cost saved (modeled)</div>
-      <div class="value">$<span id="costSaved">0.00</span></div>
-      <div class="row"><span>spent on misses</span><b>$<span id="costSpent">0.00</span></b></div>
-      <div class="row"><span>per 1M tokens served</span><b>$<span id="savedPer">0.00</span></b></div>
-    </div>
-    <div class="card wide">
-      <div class="label">Hit rate over time</div>
-      <svg id="sparkHit" viewBox="0 0 600 60" preserveAspectRatio="none"></svg>
-    </div>
-    <div class="card wide">
-      <div class="label">p95 latency over time (ms) — miss vs hit</div>
-      <svg id="sparkLat" viewBox="0 0 600 60" preserveAspectRatio="none"></svg>
-    </div>
-  </div>
 
-  <footer>tokens saved: <span id="tokensSaved">0</span> · uptime: <span id="uptime">0s</span></footer>
+    <div class="card">
+      <div class="label">latency p50 / p95</div>
+      <div class="value"><span id="latP50">—</span><span class="unit">/</span><span id="latP95">—</span><span class="unit">ms</span></div>
+      <div class="subrow">
+        <span>hit p95 <b id="latHitP95">—</b></span>
+        <span>miss p95 <b id="latMissP95">—</b></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">throughput</div>
+      <div class="value"><span id="reqps">0</span><span class="unit">req/s</span></div>
+      <div class="subrow">
+        <span>requests <b id="total">0</b></span>
+        <span>rate-limited <b id="rl">0</b></span>
+        <span>errors <b id="errs">0</b></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">cost saved (modeled)</div>
+      <div class="value"><span class="unit">$</span><span id="costSaved">0</span></div>
+      <div class="subrow">
+        <span>per 1M tok <b>$<span id="savedPer">0</span></b></span>
+        <span>spent <b>$<span id="spent">0</span></b></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>latency over time</h2>
+      <div class="legend">
+        <span><i style="background:var(--miss)"></i>miss p95</span>
+        <span><i style="background:var(--semantic)"></i>hit p95</span>
+      </div>
+    </div>
+    <svg id="latChart" viewBox="0 0 1000 280"></svg>
+  </section>
+
+  <section class="row2">
+    <div class="card">
+      <div class="card-head"><h2>throughput</h2><div class="legend">req/s, 60s window</div></div>
+      <svg id="reqChart" viewBox="0 0 600 260"></svg>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>cache outcomes</h2></div>
+      <div class="donut-wrap">
+        <svg id="donut" viewBox="0 0 220 220"></svg>
+        <div class="donut-legend">
+          <span><i class="seg" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--exact);margin-right:6px"></i>exact <b id="dExact">0</b></span>
+          <span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--semantic);margin-right:6px"></i>semantic <b id="dSem">0</b></span>
+          <span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--miss);margin-right:6px"></i>miss <b id="dMiss">0</b></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    tokens saved <b id="tokensSaved">0</b> · indexed entries <b id="indexed">0</b> · uptime <b id="uptime">0s</b>
+  </footer>
+</div>
 
 <script>
-const hist = { hit: [], latMiss: [], latHit: [] };
-const MAX = 120;
+const HISTORY = 60;
+const hist = { latMiss: [], latHit: [], reqps: [] };
+let prevTotal = null, prevT = null;
 
-function fmtPct(x) { return (x * 100).toFixed(1) + "%"; }
-function fmtMs(p) { return (p.p50 == null) ? "–" : Math.round(p.p50) + " / " + Math.round(p.p95); }
-function push(arr, v) { arr.push(v); if (arr.length > MAX) arr.shift(); }
+const $ = (id) => document.getElementById(id);
+const push = (a, v) => { a.push(v); if (a.length > HISTORY) a.shift(); };
+const pct = (x) => (x * 100).toFixed(1) + "%";
+const ms = (v) => (v == null || !isFinite(v)) ? "—" : Math.round(v).toLocaleString();
 
-function spark(svgId, series) {
-  const svg = document.getElementById(svgId);
-  const W = 600, H = 60, pad = 4;
-  let all = [];
-  series.forEach(s => all = all.concat(s.data.filter(v => v != null)));
-  const max = Math.max(1, ...all), min = Math.min(0, ...all);
-  const span = (max - min) || 1;
+function niceMax(v) {
+  if (!v || v <= 0) return 10;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  const f = v / p;
+  const n = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  return n * p;
+}
+function fmtAxis(v) {
+  if (v >= 1000) return (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k";
+  return String(Math.round(v));
+}
+
+function lineChart(svg, series) {
+  const W = 1000, H = 280, L = 54, R = 18, T = 16, B = 30;
+  const iw = W - L - R, ih = H - T - B;
+  let vals = [];
+  series.forEach((s) => s.data.forEach((v) => { if (v != null && isFinite(v)) vals.push(v); }));
+  const max = vals.length ? niceMax(Math.max(...vals)) : 10;
+  const X = (i) => L + (HISTORY <= 1 ? 0 : (i / (HISTORY - 1)) * iw);
+  const Y = (v) => T + ih - (v / max) * ih;
   let out = "";
-  for (const s of series) {
-    const d = s.data;
-    if (!d.length) continue;
-    let path = "";
-    d.forEach((v, i) => {
-      if (v == null) return;
-      const x = pad + (i / Math.max(1, MAX - 1)) * (W - 2 * pad);
-      const y = H - pad - ((v - min) / span) * (H - 2 * pad);
-      path += (path ? " L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+  const ticks = 4;
+  for (let i = 0; i <= ticks; i++) {
+    const val = (max * i) / ticks, y = Y(val);
+    out += `<line x1="${L}" y1="${y.toFixed(1)}" x2="${W - R}" y2="${y.toFixed(1)}" class="${i ? "grid" : "axis"}"/>`;
+    out += `<text x="${L - 9}" y="${(y + 3.5).toFixed(1)}" class="yl" text-anchor="end">${fmtAxis(val)}</text>`;
+  }
+  series.forEach((s) => {
+    let d = "", on = false;
+    s.data.forEach((v, i) => {
+      if (v == null || !isFinite(v)) { on = false; return; }
+      const x = X(i), y = Y(v);
+      d += on ? ` L${x.toFixed(1)} ${y.toFixed(1)}` : `M${x.toFixed(1)} ${y.toFixed(1)}`;
+      on = true;
     });
-    out += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="1.6" />`;
+    if (d) out += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  out += `<text x="${L}" y="${H - 9}" class="xl">${HISTORY}s ago</text>`;
+  out += `<text x="${W - R}" y="${H - 9}" class="xl" text-anchor="end">now</text>`;
+  svg.innerHTML = out;
+}
+
+function areaChart(svg, data, color) {
+  const W = 600, H = 260, L = 44, R = 14, T = 14, B = 28;
+  const iw = W - L - R, ih = H - T - B;
+  const vals = data.filter((v) => v != null && isFinite(v));
+  const max = vals.length ? niceMax(Math.max(...vals)) : 10;
+  const X = (i) => L + (i / (HISTORY - 1)) * iw;
+  const Y = (v) => T + ih - (v / max) * ih;
+  let out = "";
+  for (let i = 0; i <= 3; i++) {
+    const val = (max * i) / 3, y = Y(val);
+    out += `<line x1="${L}" y1="${y.toFixed(1)}" x2="${W - R}" y2="${y.toFixed(1)}" class="${i ? "grid" : "axis"}"/>`;
+    out += `<text x="${L - 9}" y="${(y + 3.5).toFixed(1)}" class="yl" text-anchor="end">${fmtAxis(val)}</text>`;
+  }
+  let line = "", area = "", on = false, firstX = null, lastX = null;
+  data.forEach((v, i) => {
+    if (v == null || !isFinite(v)) return;
+    const x = X(i), y = Y(v);
+    if (firstX == null) firstX = x;
+    lastX = x;
+    line += on ? ` L${x.toFixed(1)} ${y.toFixed(1)}` : `M${x.toFixed(1)} ${y.toFixed(1)}`;
+    on = true;
+  });
+  if (line) {
+    const base = (T + ih).toFixed(1);
+    area = `M${firstX.toFixed(1)} ${base} ` + line.replace(/^M/, "L") + ` L${lastX.toFixed(1)} ${base} Z`;
+    out += `<path d="${area}" fill="${color}" opacity="0.10"/>`;
+    out += `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
   svg.innerHTML = out;
 }
 
-function render(m) {
-  document.getElementById("hitRate").textContent = fmtPct(m.hit_rate);
-  document.getElementById("exactRate").textContent = fmtPct(m.exact_rate);
-  document.getElementById("semRate").textContent = fmtPct(m.semantic_rate);
-  document.getElementById("latAll").textContent = fmtMs(m.latency_ms.all);
-  document.getElementById("latHit").textContent = fmtMs(m.latency_ms.hit);
-  document.getElementById("latMiss").textContent = fmtMs(m.latency_ms.miss);
-  const c = m.counters;
-  document.getElementById("total").textContent = c.total;
-  document.getElementById("breakdown").textContent = `${c.miss} / ${c.exact} / ${c.semantic}`;
-  document.getElementById("errs").textContent = `${c.rate_limited} / ${c.error}`;
-  document.getElementById("costSaved").textContent = m.cost_saved.toFixed(4);
-  document.getElementById("costSpent").textContent = m.cost_spent.toFixed(4);
-  document.getElementById("savedPer").textContent = m.cost_saved_per_mtok.toFixed(2);
-  document.getElementById("tokensSaved").textContent = m.tokens_saved.toLocaleString();
-  document.getElementById("uptime").textContent = Math.round(m.uptime_s) + "s";
+function donut(svg, segs) {
+  const total = segs.reduce((a, s) => a + s.value, 0);
+  const cx = 110, cy = 110, r = 80, sw = 22, C = 2 * Math.PI * r;
+  let out = "", off = 0;
+  if (total === 0) {
+    out += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--hair2)" stroke-width="${sw}"/>`;
+  } else {
+    segs.forEach((s) => {
+      if (s.value <= 0) return;
+      const dash = (s.value / total) * C;
+      out += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${sw}"` +
+             ` stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"` +
+             ` transform="rotate(-90 ${cx} ${cy})"/>`;
+      off += dash;
+    });
+  }
+  const hitPct = total ? ((segs[0].value + segs[1].value) / total) * 100 : null;
+  out += `<text x="${cx}" y="${cy - 1}" class="dnum" text-anchor="middle">${hitPct == null ? "—" : Math.round(hitPct) + "%"}</text>`;
+  out += `<text x="${cx}" y="${cy + 18}" class="dlab" text-anchor="middle">hit rate</text>`;
+  svg.innerHTML = out;
+}
 
-  push(hist.hit, m.hit_rate * 100);
+function render(m) {
+  const c = m.counters;
+  const served = c.exact + c.semantic + c.miss;
+  $("hitRate").textContent = pct(m.hit_rate);
+  const e = served ? (c.exact / served) * 100 : 0;
+  const s = served ? (c.semantic / served) * 100 : 0;
+  $("segExact").style.width = e + "%";
+  $("segSem").style.width = s + "%";
+  $("segMiss").style.width = (served ? 100 - e - s : 0) + "%";
+  $("cExact").textContent = c.exact;
+  $("cSem").textContent = c.semantic;
+  $("cMiss").textContent = c.miss;
+
+  $("latP50").textContent = ms(m.latency_ms.all.p50);
+  $("latP95").textContent = ms(m.latency_ms.all.p95);
+  $("latHitP95").textContent = ms(m.latency_ms.hit.p95);
+  $("latMissP95").textContent = ms(m.latency_ms.miss.p95);
+
+  let r = 0;
+  if (prevTotal != null && m.uptime_s > prevT) r = Math.max(0, (c.total - prevTotal) / (m.uptime_s - prevT));
+  prevTotal = c.total; prevT = m.uptime_s;
+  $("reqps").textContent = r.toFixed(r < 10 ? 1 : 0);
+  $("total").textContent = c.total.toLocaleString();
+  $("rl").textContent = c.rate_limited;
+  $("errs").textContent = c.error;
+
+  $("costSaved").textContent = m.cost_saved.toFixed(4);
+  $("savedPer").textContent = m.cost_saved_per_mtok.toFixed(2);
+  $("spent").textContent = m.cost_spent.toFixed(4);
+
+  $("dExact").textContent = c.exact;
+  $("dSem").textContent = c.semantic;
+  $("dMiss").textContent = c.miss;
+  $("tokensSaved").textContent = (m.tokens_saved || 0).toLocaleString();
+  $("indexed").textContent = (m.indexed || 0).toLocaleString();
+  $("uptime").textContent = Math.round(m.uptime_s) + "s";
+
   push(hist.latMiss, m.latency_ms.miss.p95);
   push(hist.latHit, m.latency_ms.hit.p95);
-  spark("sparkHit", [{ data: hist.hit, color: "#5db0ff" }]);
-  spark("sparkLat", [
-    { data: hist.latMiss, color: "#e0a45e" },
-    { data: hist.latHit, color: "#5ad19a" },
+  push(hist.reqps, r);
+  lineChart($("latChart"), [
+    { data: hist.latMiss, color: "var(--miss)" },
+    { data: hist.latHit, color: "var(--semantic)" },
+  ]);
+  areaChart($("reqChart"), hist.reqps, "#2f73c4");
+  donut($("donut"), [
+    { value: c.exact, color: "#2f73c4" },
+    { value: c.semantic, color: "#14a07a" },
+    { value: c.miss, color: "#d98a34" },
   ]);
 }
 
 function setConn(live) {
-  document.getElementById("conn").className = "dot" + (live ? " live" : "");
-  document.getElementById("connText").textContent = live ? "live" : "reconnecting…";
+  $("dot").className = "dot" + (live ? " live" : "");
+  $("conn").textContent = live ? "live" : "reconnecting";
 }
 
+fetch("/metrics.json").then((r) => r.json()).then(render).catch(() => {});
 const es = new EventSource("/metrics/stream");
-es.onmessage = (e) => { setConn(true); render(JSON.parse(e.data)); };
+es.onmessage = (ev) => { setConn(true); render(JSON.parse(ev.data)); };
 es.onerror = () => setConn(false);
 </script>
 </body>

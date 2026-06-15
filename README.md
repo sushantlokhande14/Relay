@@ -136,8 +136,10 @@ curl -N http://127.0.0.1:8000/v1/chat/completions \
   -d '{"model":"mock","messages":[{"role":"user","content":"hello"}],"stream":true}'
 ```
 
-The dashboard is at `http://127.0.0.1:8000/` and updates live over SSE. To use
-the real providers, put keys in a `.env` (see `.env.example`) and add them to the
+The dashboard is at `http://127.0.0.1:8000/` and updates live over SSE, with
+hit-rate, latency, throughput, and cache-mix charts drawn in plain SVG. There's
+no chart library, so it works offline like the rest of the project. To use the
+real providers, put keys in a `.env` (see `.env.example`) and add them to the
 route's provider chain in `config.yaml`.
 
 To reproduce the numbers, start the server and run:

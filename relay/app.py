@@ -39,7 +39,14 @@ gateway = Gateway(settings, providers, store, embedder, semantic)
 limiter = RateLimiter()
 metrics = Metrics(settings.prices)
 
-DASHBOARD = (Path(__file__).parent / "dashboard" / "page.html").read_text(encoding="utf-8")
+DASHBOARD_PATH = Path(__file__).parent / "dashboard" / "page.html"
+
+
+def _snapshot() -> dict:
+    s = metrics.snapshot()
+    s["cache_entries"] = store.counts()["alive"]
+    s["indexed"] = semantic.stats()["indexed"]
+    return s
 
 
 @asynccontextmanager
@@ -73,12 +80,13 @@ async def healthz() -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard() -> str:
-    return DASHBOARD
+    # Read on each request so dashboard edits show up on a browser refresh.
+    return DASHBOARD_PATH.read_text(encoding="utf-8")
 
 
 @app.get("/metrics.json")
 async def metrics_json() -> dict:
-    return metrics.snapshot()
+    return _snapshot()
 
 
 @app.post("/metrics/reset")
@@ -92,7 +100,7 @@ async def metrics_reset() -> dict:
 async def metrics_stream():
     async def gen():
         while True:
-            yield f"data: {json.dumps(metrics.snapshot())}\n\n"
+            yield f"data: {json.dumps(_snapshot())}\n\n"
             await asyncio.sleep(1.0)
 
     return StreamingResponse(gen(), media_type="text/event-stream")
