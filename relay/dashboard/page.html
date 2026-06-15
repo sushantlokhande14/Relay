@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Relay metrics</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36;
+    --text: #e6e9ef; --muted: #8b93a3; --accent: #5db0ff; --good: #5ad19a; --warn: #e0a45e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 28px;
+  }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+  .sub { color: var(--muted); margin-bottom: 22px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .value { font-size: 26px; margin-top: 6px; }
+  .value small { font-size: 13px; color: var(--muted); }
+  .row { display: flex; justify-content: space-between; margin-top: 4px; color: var(--muted); }
+  .row b { color: var(--text); font-weight: 600; }
+  .wide { grid-column: 1 / -1; }
+  svg { display: block; width: 100%; height: 60px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--muted); }
+  .dot.live { background: var(--good); }
+  footer { color: var(--muted); margin-top: 22px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Relay</h1>
+  <div class="sub"><span id="conn" class="dot"></span><span id="connText">connecting…</span> · cost figures are modeled from reference prices, not billed</div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Cache hit rate</div>
+      <div class="value"><span id="hitRate">–</span></div>
+      <div class="row"><span>exact</span><b id="exactRate">–</b></div>
+      <div class="row"><span>semantic</span><b id="semRate">–</b></div>
+    </div>
+    <div class="card">
+      <div class="label">Latency p50 / p95 (ms)</div>
+      <div class="value"><span id="latAll">–</span></div>
+      <div class="row"><span>cache hit</span><b id="latHit">–</b></div>
+      <div class="row"><span>miss</span><b id="latMiss">–</b></div>
+    </div>
+    <div class="card">
+      <div class="label">Requests</div>
+      <div class="value"><span id="total">0</span></div>
+      <div class="row"><span>miss / exact / semantic</span><b id="breakdown">0 / 0 / 0</b></div>
+      <div class="row"><span>rate limited / errors</span><b id="errs">0 / 0</b></div>
+    </div>
+    <div class="card">
+      <div class="label">Cost saved (modeled)</div>
+      <div class="value">$<span id="costSaved">0.00</span></div>
+      <div class="row"><span>spent on misses</span><b>$<span id="costSpent">0.00</span></b></div>
+      <div class="row"><span>per 1M tokens served</span><b>$<span id="savedPer">0.00</span></b></div>
+    </div>
+    <div class="card wide">
+      <div class="label">Hit rate over time</div>
+      <svg id="sparkHit" viewBox="0 0 600 60" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="card wide">
+      <div class="label">p95 latency over time (ms) — miss vs hit</div>
+      <svg id="sparkLat" viewBox="0 0 600 60" preserveAspectRatio="none"></svg>
+    </div>
+  </div>
+
+  <footer>tokens saved: <span id="tokensSaved">0</span> · uptime: <span id="uptime">0s</span></footer>
+
+<script>
+const hist = { hit: [], latMiss: [], latHit: [] };
+const MAX = 120;
+
+function fmtPct(x) { return (x * 100).toFixed(1) + "%"; }
+function fmtMs(p) { return (p.p50 == null) ? "–" : Math.round(p.p50) + " / " + Math.round(p.p95); }
+function push(arr, v) { arr.push(v); if (arr.length > MAX) arr.shift(); }
+
+function spark(svgId, series) {
+  const svg = document.getElementById(svgId);
+  const W = 600, H = 60, pad = 4;
+  let all = [];
+  series.forEach(s => all = all.concat(s.data.filter(v => v != null)));
+  const max = Math.max(1, ...all), min = Math.min(0, ...all);
+  const span = (max - min) || 1;
+  let out = "";
+  for (const s of series) {
+    const d = s.data;
+    if (!d.length) continue;
+    let path = "";
+    d.forEach((v, i) => {
+      if (v == null) return;
+      const x = pad + (i / Math.max(1, MAX - 1)) * (W - 2 * pad);
+      const y = H - pad - ((v - min) / span) * (H - 2 * pad);
+      path += (path ? " L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+    });
+    out += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="1.6" />`;
+  }
+  svg.innerHTML = out;
+}
+
+function render(m) {
+  document.getElementById("hitRate").textContent = fmtPct(m.hit_rate);
+  document.getElementById("exactRate").textContent = fmtPct(m.exact_rate);
+  document.getElementById("semRate").textContent = fmtPct(m.semantic_rate);
+  document.getElementById("latAll").textContent = fmtMs(m.latency_ms.all);
+  document.getElementById("latHit").textContent = fmtMs(m.latency_ms.hit);
+  document.getElementById("latMiss").textContent = fmtMs(m.latency_ms.miss);
+  const c = m.counters;
+  document.getElementById("total").textContent = c.total;
+  document.getElementById("breakdown").textContent = `${c.miss} / ${c.exact} / ${c.semantic}`;
+  document.getElementById("errs").textContent = `${c.rate_limited} / ${c.error}`;
+  document.getElementById("costSaved").textContent = m.cost_saved.toFixed(4);
+  document.getElementById("costSpent").textContent = m.cost_spent.toFixed(4);
+  document.getElementById("savedPer").textContent = m.cost_saved_per_mtok.toFixed(2);
+  document.getElementById("tokensSaved").textContent = m.tokens_saved.toLocaleString();
+  document.getElementById("uptime").textContent = Math.round(m.uptime_s) + "s";
+
+  push(hist.hit, m.hit_rate * 100);
+  push(hist.latMiss, m.latency_ms.miss.p95);
+  push(hist.latHit, m.latency_ms.hit.p95);
+  spark("sparkHit", [{ data: hist.hit, color: "#5db0ff" }]);
+  spark("sparkLat", [
+    { data: hist.latMiss, color: "#e0a45e" },
+    { data: hist.latHit, color: "#5ad19a" },
+  ]);
+}
+
+function setConn(live) {
+  document.getElementById("conn").className = "dot" + (live ? " live" : "");
+  document.getElementById("connText").textContent = live ? "live" : "reconnecting…";
+}
+
+const es = new EventSource("/metrics/stream");
+es.onmessage = (e) => { setConn(true); render(JSON.parse(e.data)); };
+es.onerror = () => setConn(false);
+</script>
+</body>
+</html>

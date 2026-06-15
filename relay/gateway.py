@@ -24,6 +24,7 @@ class RequestContext:
     streaming to set headers and (later) record metrics."""
 
     route: str = ""
+    model: str = ""
     cache: str = "miss"  # "exact" | "semantic" | "miss"
     provider: str | None = None
     prompt_tokens: int = 0
@@ -61,6 +62,7 @@ class Gateway:
     ) -> AsyncIterator[StreamChunk]:
         route_name = self.route_for(req)
         ctx.route = route_name
+        ctx.model = req.model
         normalized = normalize_request(req, route_name)
         h = prompt_hash(normalized)
 
