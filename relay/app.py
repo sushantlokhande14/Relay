@@ -5,6 +5,8 @@ import json
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from .cache.embed import Embedder
+from .cache.semantic import SemanticCache
 from .cache.store import Store
 from .config import load_settings
 from .gateway import Gateway, RequestContext
@@ -19,7 +21,15 @@ from .schemas import (
 settings = load_settings()
 providers = build_providers(settings)
 store = Store(settings.cache.db_path)
-gateway = Gateway(settings, providers, store)
+embedder = Embedder(settings.cache.embedding_model, settings.cache.dim)
+semantic = SemanticCache(
+    store,
+    dim=settings.cache.dim,
+    index_path=settings.cache.index_path,
+    max_entries=settings.cache.max_entries,
+    rebuild_when_stale_frac=settings.cache.rebuild_when_stale_frac,
+)
+gateway = Gateway(settings, providers, store, embedder, semantic)
 
 app = FastAPI(title="Relay", version="0.1.0")
 
@@ -31,6 +41,7 @@ async def healthz() -> dict:
         "providers": list(providers),
         "routes": list(settings.routes),
         "cache": store.counts(),
+        "semantic": semantic.stats(),
     }
 
 
