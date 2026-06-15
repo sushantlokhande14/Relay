@@ -26,9 +26,11 @@ class Usage:
 
 @dataclass
 class StreamChunk:
-    # a text delta, plus usage that providers attach to their final chunk
+    # a text delta, plus usage that providers attach to their final chunk.
+    # provider is stamped by the failover chain so the gateway knows who answered.
     delta: str = ""
     usage: Usage | None = None
+    provider: str | None = None
 
 
 class ProviderError(Exception):

@@ -39,6 +39,7 @@ class FailoverChain:
             try:
                 async for chunk in _iter_with_timeout(agen, timeout):
                     started = True
+                    chunk.provider = provider.name
                     yield chunk
                 return
             except Exception as e:
