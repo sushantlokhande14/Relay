@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python --version)",
+      "PowerShell(python -c \"import proxima; print\\('proxima OK', proxima.__file__\\)\")",
+      "PowerShell(python -m pip install --quiet \"fastapi\" \"uvicorn[standard]\" \"pydantic>=2\" \"pydantic-settings\" 2>&1 | Select-Object -Last 5; Write-Output \"exit=$LASTEXITCODE\")"
+    ]
+  }
+}

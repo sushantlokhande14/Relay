@@ -1,0 +1,46 @@
+# Relay configuration.
+#
+# A route maps a request to an ordered chain of providers. The first provider
+# that answers wins; the rest are failover. similarity_threshold is where a
+# semantic cache hit is accepted. The value here is a starting point. The real
+# one comes out of the load test, not from me guessing.
+
+gateway:
+  default_route: default
+
+routes:
+  default:
+    providers: [mock]            # grows to [openai, anthropic, mock] once keys exist
+    similarity_threshold: 0.90
+    rate_limit:
+      capacity: 60               # bucket size, counted in request permits
+      refill_per_sec: 30         # permits added back per second
+
+providers:
+  mock:
+    type: mock
+    ttft_ms: 120                 # simulated time to first token
+    per_token_ms: 8              # simulated delay between tokens
+  openai:
+    type: openai
+    model: gpt-4o-mini
+    timeout_s: 30
+  anthropic:
+    type: anthropic
+    model: claude-3-5-haiku-latest
+    timeout_s: 30
+
+cache:
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  dim: 384
+  db_path: data/relay.db
+  index_path: data/cache.idx
+  max_entries: 5000
+  rebuild_when_stale_frac: 0.20  # rebuild the index once this fraction is dead
+
+# USD per 1,000,000 tokens. With no keys these are published reference prices
+# used to model cost saved, not amounts anyone was billed.
+prices:
+  mock:                    {input: 0.50, output: 1.50}
+  gpt-4o-mini:             {input: 0.15, output: 0.60}
+  claude-3-5-haiku-latest: {input: 0.80, output: 4.00}
