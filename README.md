@@ -15,6 +15,10 @@ Everything runs locally. There's a mock provider so you can exercise the whole
 thing with no API keys and no spend, which is also how the numbers below were
 measured.
 
+![Relay dashboard during a load test, showing hit rate, latency, throughput, and the cache mix](docs/dashboard.png)
+
+The dashboard above, captured mid load test. The numbers are explained further down.
+
 ## Why
 
 Calling a provider directly is one function call. Putting that call in front of
