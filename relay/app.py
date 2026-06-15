@@ -81,6 +81,13 @@ async def metrics_json() -> dict:
     return metrics.snapshot()
 
 
+@app.post("/metrics/reset")
+async def metrics_reset() -> dict:
+    # Zero the counters so a benchmark can measure a clean window after warm-up.
+    metrics.reset()
+    return {"status": "reset"}
+
+
 @app.get("/metrics/stream")
 async def metrics_stream():
     async def gen():

@@ -46,6 +46,7 @@ class Gateway:
         self.store = store
         self.embedder = embedder
         self.semantic = semantic
+        self.cache_enabled = settings.cache.enabled
         self._chains: dict[str, FailoverChain] = {}
         for name, route in settings.routes.items():
             members = [providers[p] for p in route.providers if p in providers]
@@ -66,33 +67,34 @@ class Gateway:
         normalized = normalize_request(req, route_name)
         h = prompt_hash(normalized)
 
-        # 1. exact cache
-        row = self.store.get_by_hash(h, route_name)
-        if row is not None:
-            self.store.touch(row["id"])
-            ctx.cache = "exact"
-            ctx.prompt_tokens = row["prompt_tokens"]
-            ctx.completion_tokens = row["completion_tokens"]
-            yield StreamChunk(delta=row["response_text"])
-            yield StreamChunk(usage=Usage(row["prompt_tokens"], row["completion_tokens"]))
-            return
-
-        # 2. semantic cache: embed the prompt, ask proxima for the nearest one
         embedding = None
-        if self.embedder is not None and self.semantic is not None:
-            embedding = self.embedder.embed_one(conversation_text(req))
-            row, similarity = self.semantic.search(
-                embedding, route_name, self._threshold(route_name)
-            )
+        if self.cache_enabled:
+            # 1. exact cache
+            row = self.store.get_by_hash(h, route_name)
             if row is not None:
                 self.store.touch(row["id"])
-                ctx.cache = "semantic"
-                ctx.similarity = similarity
+                ctx.cache = "exact"
                 ctx.prompt_tokens = row["prompt_tokens"]
                 ctx.completion_tokens = row["completion_tokens"]
                 yield StreamChunk(delta=row["response_text"])
                 yield StreamChunk(usage=Usage(row["prompt_tokens"], row["completion_tokens"]))
                 return
+
+            # 2. semantic cache: embed the prompt, ask proxima for the nearest one
+            if self.embedder is not None and self.semantic is not None:
+                embedding = self.embedder.embed_one(conversation_text(req))
+                row, similarity = self.semantic.search(
+                    embedding, route_name, self._threshold(route_name)
+                )
+                if row is not None:
+                    self.store.touch(row["id"])
+                    ctx.cache = "semantic"
+                    ctx.similarity = similarity
+                    ctx.prompt_tokens = row["prompt_tokens"]
+                    ctx.completion_tokens = row["completion_tokens"]
+                    yield StreamChunk(delta=row["response_text"])
+                    yield StreamChunk(usage=Usage(row["prompt_tokens"], row["completion_tokens"]))
+                    return
 
         # 3. miss -> provider chain, then store the result
         ctx.cache = "miss"
@@ -111,6 +113,14 @@ class Gateway:
         if usage:
             ctx.prompt_tokens = usage.prompt_tokens
             ctx.completion_tokens = usage.completion_tokens
+
+        if not self.cache_enabled:
+            return
+
+        # On a miss the embedding may not exist yet (e.g. no message text changed
+        # the route). Compute it here so the entry is searchable next time.
+        if self.embedder is not None and embedding is None:
+            embedding = self.embedder.embed_one(conversation_text(req))
 
         row_id = self.store.insert(
             Entry(

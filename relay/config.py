@@ -35,6 +35,7 @@ class PriceConfig(BaseModel):
 
 
 class CacheConfig(BaseModel):
+    enabled: bool = True
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     dim: int = 384
     db_path: str = "data/relay.db"
@@ -73,11 +74,15 @@ def load_settings(path: str = "config.yaml") -> Settings:
     _load_dotenv()
     raw = yaml.safe_load(Path(path).read_text())
     gw = raw.get("gateway", {})
+    cache = raw.get("cache", {})
+    # Env override so the no-cache baseline run needs no config edit.
+    if os.environ.get("RELAY_CACHE_DISABLED", "").lower() in ("1", "true", "yes"):
+        cache = {**cache, "enabled": False}
     return Settings(
         default_route=gw.get("default_route", "default"),
         routes=raw.get("routes", {}),
         providers=raw.get("providers", {}),
-        cache=raw.get("cache", {}),
+        cache=cache,
         prices=raw.get("prices", {}),
         openai_api_key=os.environ.get("OPENAI_API_KEY") or None,
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,

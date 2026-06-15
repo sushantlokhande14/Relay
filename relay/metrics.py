@@ -44,6 +44,18 @@ class Metrics:
         self.lat_hit = deque(maxlen=window)
         self.lat_miss = deque(maxlen=window)
 
+    def reset(self) -> None:
+        with self._lock:
+            self.start = time.time()
+            for k in self.counters:
+                self.counters[k] = 0
+            self.tokens_in = self.tokens_out = 0
+            self.tokens_saved_in = self.tokens_saved_out = 0
+            self.cost_spent = self.cost_saved = 0.0
+            self.lat_all.clear()
+            self.lat_hit.clear()
+            self.lat_miss.clear()
+
     def _cost(self, model: str, p_in: int, p_out: int) -> float:
         price = self.prices.get(model) or self.prices.get("mock")
         if price is None:

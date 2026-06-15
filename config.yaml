@@ -18,6 +18,9 @@ routes:
   failover-demo:
     providers: [flaky, mock]     # flaky always fails, so every call falls through to mock
     similarity_threshold: 0.90
+  bench:
+    providers: [mock]            # used by the load test; no rate limit so it measures the cache
+    similarity_threshold: 0.90
 
 providers:
   mock:
