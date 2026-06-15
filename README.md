@@ -169,21 +169,3 @@ python tests/test_failover.py     # failover and timeouts
 python tests/test_ratelimit.py    # token bucket
 ```
 
-## What's missing or rough
-
-- Cached responses come back in one chunk, not re-streamed token by token. The
-  latency win is real either way, but a client expecting a token stream gets one
-  big delta on a hit.
-- Embedding happens on the request thread and blocks the event loop while it
-  runs. It's fast on CPU for these short prompts, but under heavy load it would
-  serialize. Moving it to a thread pool is the obvious next step.
-- The cache doesn't account for temperature. If you're sampling at a high
-  temperature and actually want different answers each time, a cache hit will
-  hand back the same one. For that case you'd disable the cache on the route.
-- Rate limiting and metrics are in-process, so they're per-instance. Running more
-  than one gateway would need them moved to something shared like Redis.
-- Failover can't recover after the first streamed token, as described above.
-- The similarity threshold is global, set per route in config. Per-prompt or
-  learned thresholds would do better but aren't here.
-- SQLite is a single connection guarded by a lock. Fine for one node; it would be
-  the first thing to feel pressure at higher write rates.
